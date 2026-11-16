@@ -1,6 +1,14 @@
 <?php
-require_once '../helpers/response.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/response.php';
 
-sendResponse(true, "Backend Kantin Sekolah Siap Digunakan", [
-    "timestamp" => date("Y-m-d H:i:s")
+setHeaders();
+
+$db = (new Database())->connect();
+$version = $db->query('SELECT VERSION() AS v')->fetch();
+
+jsonResponse(true, 'API aktif', [
+    'php'   => PHP_VERSION,
+    'mysql' => $version['v'],
+    'time'  => date('c'),
 ]);

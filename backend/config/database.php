@@ -1,25 +1,36 @@
 <?php
-class Database {
-    private $host = "localhost";
-    private $db_name = "kantin_sekolah";
-    private $username = "root";
-    private $password = "rpl12345";
-    public $conn;
+/**
+ * Koneksi database menggunakan PDO.
+ * Sesuaikan nilai di bawah dengan lingkungan lokal masing-masing.
+ */
+class Database
+{
+    private  $host = 'localhost';
+    private  $db   = 'kantin_sekolah';   // TODO: ganti
+    private  $user = 'root';
+    private  $pass = 'rpl12345';
+    private  $charset = 'utf8mb4';
 
-    public function getConnection() {
-        $this->conn = null;
+    public function connect(): PDO
+    {
+        $dsn = "mysql:host={$this->host};dbname={$this->db};charset={$this->charset}";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+
         try {
-            $this->conn = new PDO("mysql:host=" . $this->host . ";dbname=" . $this->db_name, $this->username, $this->password);
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->conn->exec("set names utf8");
-        } catch(PDOException $exception) {
+            return new PDO($dsn, $this->user, $this->pass, $options);
+        } catch (PDOException $e) {
             http_response_code(500);
+            header('Content-Type: application/json');
             echo json_encode([
-                "success" => false, 
-                "message" => "Connection error: " . $exception->getMessage()
+                'success' => false,
+                'message' => 'Koneksi database gagal',
+                'data'    => null,
             ]);
-            exit();
+            exit;
         }
-        return $this->conn;
     }
 }

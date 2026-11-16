@@ -1,60 +1,28 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Content-Type: application/json");
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../helpers/response.php';
 
-// Karena file ada di backend/api/auth/, naik 2 level ke backend/config/database.php
-require_once "../../config/database.php"; 
+setHeaders();
+requireMethod('POST');
 
+$in = getJsonInput();
+$email = trim($in['email'] ?? '');
+$pass  = $in['password'] ?? '';
 
-$data = json_decode(file_get_contents("php://input"), true);
+$db = (new Database())->connect();
+$stmt = $db->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
+$stmt->execute([':email' => $email]);
+$user = $stmt->fetch();
 
-if (!isset($data['email']) || !isset($data['password'])) {
-    echo json_encode([
-        "success" => false,
-        "message" => "Email dan password wajib diisi",
-        "data" => null
-    ]);
-    exit();
+if (!$user || !password_verify($pass, $user['password'])) {
+    jsonResponse(false, 'Email atau password salah', null, 401);
 }
 
-$email = $data['email'];
-$password = $data['password'];
+$token = bin2hex(random_bytes(32));
+$upd = $db->prepare('UPDATE users SET api_token = :t WHERE id = :id');
+$upd->execute([':t' => $token, ':id' => $user['id']]);
 
-try {
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($user && password_verify($password, $user['password'])) {
-        $token = bin2hex(random_bytes(32));
-
-        // Simpan token ke database (pastikan tabel users memiliki kolom 'token')
-        $updateToken = $pdo->prepare("UPDATE users SET token = ? WHERE id = ?");
-        $updateToken->execute([$token, $user['id']]);
-
-        echo json_encode([
-            "success" => true,
-            "message" => "Login berhasil",
-            "data" => [
-                "id" => $user['id'],
-                "name" => $user['name'],
-                "email" => $user['email'],
-                "token" => $token
-            ]
-        ]);
-    } else {
-        echo json_encode([
-            "success" => false,
-            "message" => "Email atau password salah!",
-            "data" => null
-        ]);
-    }
-} catch (PDOException $e) {
-    echo json_encode([
-        "success" => false,
-        "message" => "Terjadi kesalahan server: " . $e->getMessage(),
-        "data" => null
-    ]);
-}
-?>
+jsonResponse(true, 'Login berhasil', [
+    'token' => $token,
+    'user'  => ['id' => (int)$user['id'], 'name' => $user['name'], 'email' => $user['email']],
+]);

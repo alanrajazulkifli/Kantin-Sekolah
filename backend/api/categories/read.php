@@ -1,9 +1,13 @@
 <?php
 require_once '../../config/database.php';
 require_once '../../helpers/response.php';
+require_once '../../helpers/auth.php';
 
 $database = new Database();
 $db = $database->getConnection();
+
+// Memeriksa autentikasi
+$user = requireAuth($db);
 
 try {
     $query = "SELECT * FROM categories ORDER BY id ASC";
