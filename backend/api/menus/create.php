@@ -10,45 +10,65 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-require_once '../../config/database.php';
 require_once '../../helpers/response.php';
 
-$database = new Database();
-$db = $database->getConnection();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Allow: POST, OPTIONS');
+    sendResponse(false, "Endpoint tambah menu hanya menerima metode POST.", null, 405);
+}
 
-// Tangkap input JSON dari Flutter
 $inputJSON = file_get_contents("php://input");
-$data = json_decode($inputJSON);
+$data = json_decode($inputJSON, true);
 
-// Jika kosong, coba ambil dari $_POST biasa sebagai cadangan
-$category_id = $data->category_id ?? ($_POST['category_id'] ?? null);
-$nama        = $data->nama ?? ($_POST['nama'] ?? null);
-$harga       = $data->harga ?? ($_POST['harga'] ?? null);
-$stok        = $data->stok ?? ($_POST['stok'] ?? 0);
-$deskripsi   = $data->deskripsi ?? ($_POST['deskripsi'] ?? '');
-$gambar_url  = $data->gambar_url ?? ($_POST['gambar_url'] ?? '');
+if (trim($inputJSON) !== '' && json_last_error() !== JSON_ERROR_NONE) {
+    sendResponse(false, "Format JSON tidak valid.", null, 400);
+}
 
-if (!empty($category_id) && !empty($nama) && !empty($harga)) {
-    try {
-        $query = "INSERT INTO menus (category_id, nama, harga, stok, deskripsi, gambar_url) 
-                  VALUES (:category_id, :nama, :harga, :stok, :deskripsi, :gambar_url)";
-        $stmt = $db->prepare($query);
-        
-        $stmt->bindParam(':category_id', $category_id);
-        $stmt->bindParam(':nama', $nama);
-        $stmt->bindParam(':harga', $harga);
-        $stmt->bindParam(':stok', $stok);
-        $stmt->bindParam(':deskripsi', $deskripsi);
-        $stmt->bindParam(':gambar_url', $gambar_url);
-        
-        if ($stmt->execute()) {
-            sendResponse(true, "Menu berhasil ditambahkan", null, 201);
-        } else {
-            sendResponse(false, "Gagal menambahkan menu ke database", null, 400);
-        }
-    } catch (Exception $e) {
-        sendResponse(false, "Error: " . $e->getMessage(), null, 500);
-    }
-} else {
-    sendResponse(false, "Data input tidak lengkap (category_id, nama, dan harga wajib diisi)", null, 400);
+$data = is_array($data) ? $data : [];
+$category_id = $data['category_id'] ?? ($_POST['category_id'] ?? null);
+$nama        = $data['nama'] ?? ($_POST['nama'] ?? null);
+$harga       = $data['harga'] ?? ($_POST['harga'] ?? null);
+$stok        = $data['stok'] ?? ($_POST['stok'] ?? 0);
+$deskripsi   = $data['deskripsi'] ?? ($_POST['deskripsi'] ?? '');
+$gambar_url  = $data['gambar_url'] ?? ($_POST['gambar_url'] ?? '');
+
+$nama = is_string($nama) ? trim($nama) : '';
+$categoryId = filter_var($category_id, FILTER_VALIDATE_INT);
+$stock = filter_var($stok, FILTER_VALIDATE_INT);
+
+if (
+    $categoryId === false || $categoryId < 1 ||
+    $nama === '' ||
+    !is_numeric($harga) || $harga <= 0 ||
+    $stock === false || $stock < 0
+) {
+    sendResponse(
+        false,
+        "Data tidak valid. category_id, nama, dan harga harus diisi; stok harus berupa angka nol atau lebih.",
+        null,
+        400
+    );
+}
+
+require_once '../../config/database.php';
+
+try {
+    $database = new Database();
+    $db = $database->getConnection();
+
+    $query = "INSERT INTO menus (category_id, nama, harga, stok, deskripsi, gambar_url)
+              VALUES (:category_id, :nama, :harga, :stok, :deskripsi, :gambar_url)";
+    $stmt = $db->prepare($query);
+    $stmt->execute([
+        ':category_id' => $categoryId,
+        ':nama' => $nama,
+        ':harga' => $harga,
+        ':stok' => $stock,
+        ':deskripsi' => is_scalar($deskripsi) ? (string) $deskripsi : '',
+        ':gambar_url' => is_scalar($gambar_url) ? (string) $gambar_url : '',
+    ]);
+
+    sendResponse(true, "Menu berhasil ditambahkan", null, 201);
+} catch (Exception $e) {
+    sendResponse(false, "Gagal menambahkan menu: " . $e->getMessage(), null, 500);
 }
