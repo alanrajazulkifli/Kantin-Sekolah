@@ -5,19 +5,19 @@
  */
 class Database
 {
-    private  $host = 'localhost';
-    private  $db   = 'kantin_sekolah';   // TODO: ganti
-    private  $user = 'root';
-    private  $pass = 'rpl12345';
-    private  $charset = 'utf8mb4';
+    private $host = 'localhost';
+    private $db = 'kantin_sekolah';
+    private $user = 'root';
+    private $pass = 'rpl12345';
+    private $charset = 'utf8mb4';
 
     public function connect(): PDO
     {
         $dsn = "mysql:host={$this->host};dbname={$this->db};charset={$this->charset}";
         $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
+            PDO::ATTR_EMULATE_PREPARES => false,
         ];
 
         try {
@@ -28,9 +28,14 @@ class Database
             echo json_encode([
                 'success' => false,
                 'message' => 'Koneksi database gagal',
-                'data'    => null,
+                'data' => null,
             ]);
             exit;
         }
+    }
+
+    public function getConnection(): PDO
+    {
+        return $this->connect();
     }
 }
