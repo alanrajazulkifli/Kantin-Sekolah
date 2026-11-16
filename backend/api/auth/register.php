@@ -1,32 +1,61 @@
 <?php
-require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../../helpers/response.php';
+// Wajib ada untuk mengatasi error Failed to fetch di Flutter Web
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Content-Type: application/json; charset=UTF-8");
 
-setHeaders();
-requireMethod('POST');
-
-$in = getJsonInput();
-$name  = trim($in['name'] ?? '');
-$email = trim($in['email'] ?? '');
-$pass  = $in['password'] ?? '';
-
-if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($pass) < 6) {
-    jsonResponse(false, 'Data tidak valid (password min. 6 karakter)', null, 400);
+// Tangani preflight request OPTIONS dari browser
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
 }
 
-$db = (new Database())->connect();
+require_once "../../config/database.php";
 
-$cek = $db->prepare('SELECT id FROM users WHERE email = :email');
-$cek->execute([':email' => $email]);
-if ($cek->fetch()) {
-    jsonResponse(false, 'Email sudah terdaftar', null, 409);
+$data = json_decode(file_get_contents("php://input"), true);
+
+if (!isset($data['name']) || !isset($data['email']) || !isset($data['password'])) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Data tidak lengkap (name, email, password wajib diisi)",
+        "data" => null
+    ]);
+    exit();
 }
 
-$stmt = $db->prepare('INSERT INTO users (name, email, password) VALUES (:n, :e, :p)');
-$stmt->execute([
-    ':n' => $name,
-    ':e' => $email,
-    ':p' => password_hash($pass, PASSWORD_DEFAULT),
-]);
+$name = $data['name'];
+$email = $data['email'];
+$password = password_hash($data['password'], PASSWORD_DEFAULT);
 
-jsonResponse(true, 'Registrasi berhasil', ['id' => (int)$db->lastInsertId()], 201);
+try {
+    $database = new Database();
+    $pdo = $database->getConnection();
+
+    $check = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $check->execute([$email]);
+    if ($check->rowCount() > 0) {
+        echo json_encode([
+            "success" => false,
+            "message" => "Email sudah terdaftar!",
+            "data" => null
+        ]);
+        exit();
+    }
+
+    $stmt = $pdo->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
+    $stmt->execute([$name, $email, $password]);
+
+    echo json_encode([
+        "success" => true,
+        "message" => "Registrasi berhasil, silakan login.",
+        "data" => null
+    ]);
+} catch (PDOException $e) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Kesalahan server: " . $e->getMessage(),
+        "data" => null
+    ]);
+}
+?>
