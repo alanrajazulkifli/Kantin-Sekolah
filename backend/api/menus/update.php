@@ -11,9 +11,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../config/database.php';
 require_once '../../helpers/response.php';
+require_once '../../helpers/auth.php';
+
+setHeaders();
+requireMethod('POST');
 
 $database = new Database();
 $db = $database->getConnection();
+$user = requireAuth($db);
+requireRole($user, ['admin']);
 
 $data = json_decode(file_get_contents("php://input"));
 

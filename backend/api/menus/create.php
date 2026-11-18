@@ -11,11 +11,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once '../../helpers/response.php';
+require_once '../../config/database.php';
+require_once '../../helpers/auth.php';
+
+setHeaders();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: POST, OPTIONS');
     jsonResponse(false, "Endpoint tambah menu hanya menerima metode POST.", null, 405);
 }
+
+$database = new Database();
+$db = $database->getConnection();
+$user = requireAuth($db);
+requireRole($user, ['admin']);
 
 $inputJSON = file_get_contents("php://input");
 $data = json_decode($inputJSON, true);
@@ -50,12 +59,7 @@ if (
     );
 }
 
-require_once '../../config/database.php';
-
 try {
-    $database = new Database();
-    $db = $database->getConnection();
-
     $query = "INSERT INTO menus (category_id, nama, harga, stok, deskripsi, gambar_url)
               VALUES (:category_id, :nama, :harga, :stok, :deskripsi, :gambar_url)";
     $stmt = $db->prepare($query);

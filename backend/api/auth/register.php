@@ -1,6 +1,8 @@
+
 <?php
+
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -11,6 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Metode tidak diizinkan.',
+        'data' => null
+    ]);
+    exit();
+}
+
 $rawInput = file_get_contents('php://input');
 $data = json_decode($rawInput, true);
 
@@ -18,51 +30,90 @@ if (!is_array($data) || empty($data)) {
     $data = $_POST;
 }
 
-if (!is_array($data)) {
-    parse_str($rawInput, $data);
-}
+$name = trim($data['name'] ?? '');
+$email = trim($data['email'] ?? '');
+$password = (string) ($data['password'] ?? '');
 
-if (!isset($data['name']) || !isset($data['email']) || !isset($data['password'])) {
+if ($name === '' || $email === '' || $password === '') {
     echo json_encode([
         'success' => false,
-        'message' => 'Data tidak lengkap (name, email, password wajib diisi)',
-        'data' => null,
+        'message' => 'Nama, email, dan password wajib diisi.',
+        'data' => null
     ]);
     exit();
 }
 
-$name = trim((string) $data['name']);
-$email = trim((string) $data['email']);
-$password = password_hash((string) $data['password'], PASSWORD_DEFAULT);
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Format email tidak valid.',
+        'data' => null
+    ]);
+    exit();
+}
+
+if (strlen($password) < 8) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Password minimal 8 karakter.',
+        'data' => null
+    ]);
+    exit();
+}
 
 try {
+
     $database = new Database();
     $pdo = $database->getConnection();
 
-    $check = $pdo->prepare('SELECT id FROM users WHERE email = ?');
+    $check = $pdo->prepare(
+        'SELECT id FROM users WHERE email = ? LIMIT 1'
+    );
+
     $check->execute([$email]);
-    if ($check->rowCount() > 0) {
+
+    if ($check->fetch()) {
         echo json_encode([
             'success' => false,
-            'message' => 'Email sudah terdaftar!',
-            'data' => null,
+            'message' => 'Email sudah terdaftar.',
+            'data' => null
         ]);
         exit();
     }
 
-    $stmt = $pdo->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
-    $stmt->execute([$name, $email, $password]);
+    $hashedPassword = password_hash(
+        $password,
+        PASSWORD_DEFAULT
+    );
+
+    // Registrasi hanya diperbolehkan untuk siswa.
+    $stmt = $pdo->prepare(
+        'INSERT INTO users (name, email, password, role)
+         VALUES (?, ?, ?, ?)'
+    );
+
+    $stmt->execute([
+        $name,
+        $email,
+        $hashedPassword,
+        'siswa'
+    ]);
 
     echo json_encode([
         'success' => true,
-        'message' => 'Registrasi berhasil, silakan login.',
-        'data' => null,
+        'message' => 'Registrasi berhasil. Silakan login.',
+        'data' => null
     ]);
+
 } catch (PDOException $e) {
+
+    http_response_code(500);
+
     echo json_encode([
         'success' => false,
-        'message' => 'Kesalahan server: ' . $e->getMessage(),
-        'data' => null,
+        'message' => 'Terjadi kesalahan pada server.',
+        'data' => null
     ]);
 }
+
 ?>

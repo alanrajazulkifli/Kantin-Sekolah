@@ -23,6 +23,11 @@ function jsonResponse(bool $success, string $message, $data = null, int $code = 
     exit;
 }
 
+function sendResponse(bool $success, string $message, $data = null, int $code = 200): void
+{
+    jsonResponse($success, $message, $data, $code);
+}
+
 function requireMethod(string $method): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== $method) {

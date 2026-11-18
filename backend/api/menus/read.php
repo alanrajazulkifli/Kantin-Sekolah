@@ -1,9 +1,14 @@
 <?php
 require_once '../../config/database.php';
 require_once '../../helpers/response.php';
+require_once '../../helpers/auth.php';
 
+setHeaders();
+requireMethod('GET');
 $database = new Database();
 $db = $database->getConnection();
+$user = requireAuth($db);
+requireMethod('GET');
 
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $conditions = ['m.nama LIKE :search'];
