@@ -14,14 +14,14 @@ require_once '../../helpers/response.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: POST, OPTIONS');
-    sendResponse(false, "Endpoint tambah menu hanya menerima metode POST.", null, 405);
+    jsonResponse(false, "Endpoint tambah menu hanya menerima metode POST.", null, 405);
 }
 
 $inputJSON = file_get_contents("php://input");
 $data = json_decode($inputJSON, true);
 
 if (trim($inputJSON) !== '' && json_last_error() !== JSON_ERROR_NONE) {
-    sendResponse(false, "Format JSON tidak valid.", null, 400);
+    jsonResponse(false, "Format JSON tidak valid.", null, 400);
 }
 
 $data = is_array($data) ? $data : [];
@@ -42,7 +42,7 @@ if (
     !is_numeric($harga) || $harga <= 0 ||
     $stock === false || $stock < 0
 ) {
-    sendResponse(
+    jsonResponse(
         false,
         "Data tidak valid. category_id, nama, dan harga harus diisi; stok harus berupa angka nol atau lebih.",
         null,
@@ -68,7 +68,7 @@ try {
         ':gambar_url' => is_scalar($gambar_url) ? (string) $gambar_url : '',
     ]);
 
-    sendResponse(true, "Menu berhasil ditambahkan", null, 201);
+    jsonResponse(true, "Menu berhasil ditambahkan", null, 201);
 } catch (Exception $e) {
-    sendResponse(false, "Gagal menambahkan menu: " . $e->getMessage(), null, 500);
+    jsonResponse(false, "Gagal menambahkan menu: " . $e->getMessage(), null, 500);
 }
