@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS orders (
     user_id INT NOT NULL,
     customer_name VARCHAR(100) NOT NULL,
     total_price DECIMAL(12, 2) NOT NULL,
+    status ENUM('baru', 'diproses', 'selesai', 'dibatalkan') NOT NULL DEFAULT 'baru',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_orders_user_created (user_id, created_at),

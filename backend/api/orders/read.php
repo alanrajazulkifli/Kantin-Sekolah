@@ -4,14 +4,49 @@ require_once '../../helpers/response.php';
 require_once '../../helpers/auth.php';
 
 setHeaders();
-requireMethod('GET');
 
 $database = new Database();
 $db = $database->getConnection();
 $user = requireAuth($db);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireRole($user, ['admin']);
+    $input = getJsonInput();
+    $orderId = filter_var($input['order_id'] ?? null, FILTER_VALIDATE_INT);
+    $status = (string) ($input['status'] ?? '');
+    $allowedStatuses = ['baru', 'diproses', 'selesai', 'dibatalkan'];
+
+    if ($orderId === false || $orderId < 1 || !in_array($status, $allowedStatuses, true)) {
+        jsonResponse(false, 'ID pesanan atau status tidak valid.', null, 400);
+    }
+
+    try {
+        $statement = $db->prepare(
+            'UPDATE orders SET status = :status WHERE id = :order_id'
+        );
+        $statement->execute([
+            ':status' => $status,
+            ':order_id' => $orderId,
+        ]);
+
+        if ($statement->rowCount() === 0) {
+            jsonResponse(false, 'Pesanan tidak ditemukan atau statusnya tidak berubah.', null, 404);
+        }
+
+        jsonResponse(true, 'Status pesanan berhasil diperbarui.', [
+            'id' => $orderId,
+            'status' => $status,
+        ]);
+    } catch (PDOException $e) {
+        error_log('Gagal memperbarui status pesanan: ' . $e->getMessage());
+        jsonResponse(false, 'Status pesanan gagal diperbarui.', null, 500);
+    }
+}
+
+requireMethod('GET');
 requireRole($user, ['admin', 'siswa']);
 
-$sql = 'SELECT o.id, o.user_id, o.customer_name, o.total_price, o.created_at,
+$sql = 'SELECT o.id, o.user_id, o.customer_name, o.total_price, o.status, o.created_at,
                u.name AS student_name, od.menu_id, od.quantity,
                od.unit_price, od.subtotal, m.nama AS menu_name
         FROM orders o
@@ -39,6 +74,7 @@ try {
                 'student_name' => $row['student_name'],
                 'customer_name' => $row['customer_name'],
                 'total_price' => $row['total_price'],
+                'status' => $row['status'],
                 'created_at' => $row['created_at'],
                 'details' => [],
             ];

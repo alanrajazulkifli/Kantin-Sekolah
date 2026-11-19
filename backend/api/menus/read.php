@@ -32,6 +32,15 @@ try {
     $stmt->execute($parameters);
 
     $menus = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($menus as &$menu) {
+        $imageUrl = trim((string) ($menu['gambar_url'] ?? ''));
+        if ($imageUrl !== '') {
+            $menu['gambar_url'] =
+                '/Kantin-Sekolah/backend/api/menus/image_proxy.php?url=' .
+                rawurlencode($imageUrl);
+        }
+    }
+    unset($menu);
     sendResponse(true, "Data menu berhasil dimuat", $menus, 200);
 } catch (Exception $e) {
     sendResponse(false, "Gagal mengambil data menu: " . $e->getMessage(), null, 500);
