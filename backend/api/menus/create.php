@@ -18,7 +18,12 @@ setHeaders();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: POST, OPTIONS');
-    jsonResponse(false, "Endpoint tambah menu hanya menerima metode POST.", null, 405);
+    jsonResponse(
+        false,
+        'Endpoint ini bukan halaman tampilan. Tambah menu melalui aplikasi atau kirim permintaan POST dengan data menu.',
+        null,
+        405
+    );
 }
 
 $database = new Database();
