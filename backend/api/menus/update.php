@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../../config/database.php';
 require_once '../../helpers/response.php';
 require_once '../../helpers/auth.php';
+require_once '../../helpers/menu_image.php';
 
 setHeaders();
 requireMethod('POST');
@@ -21,28 +22,49 @@ $db = $database->getConnection();
 $user = requireAuth($db);
 requireRole($user, ['admin']);
 
-$data = json_decode(file_get_contents("php://input"));
+$data = json_decode(file_get_contents("php://input"), true);
+if (!is_array($data)) {
+    $data = $_POST;
+}
 
-if (!empty($data->id) && !empty($data->category_id) && !empty($data->nama) && !empty($data->harga)) {
+if (!empty($data['id']) && !empty($data['category_id']) && !empty($data['nama']) && !empty($data['harga'])) {
     try {
-        $query = "UPDATE menus SET category_id = :category_id, nama = :nama, harga = :harga, 
-                  stok = :stok, deskripsi = :deskripsi, gambar_url = :gambar_url WHERE id = :id";
+        $uploadedImageUrl = saveMenuImage($_FILES['gambar_file'] ?? null);
+        if ($uploadedImageUrl !== null) {
+            $data['gambar_url'] = $uploadedImageUrl;
+        }
+
+        $fields = [
+            'category_id = :category_id',
+            'nama = :nama',
+            'harga = :harga',
+            'stok = :stok',
+            'deskripsi = :deskripsi',
+        ];
+        if (array_key_exists('gambar_url', $data)) {
+            $fields[] = 'gambar_url = :gambar_url';
+        }
+        $query = 'UPDATE menus SET ' . implode(', ', $fields) . ' WHERE id = :id';
         $stmt = $db->prepare($query);
-        
-        $gambar_url = isset($data->gambar_url) ? $data->gambar_url : '';
-        $stmt->bindParam(':id', $data->id);
-        $stmt->bindParam(':category_id', $data->category_id);
-        $stmt->bindParam(':nama', $data->nama);
-        $stmt->bindParam(':harga', $data->harga);
-        $stmt->bindParam(':stok', $data->stok);
-        $stmt->bindParam(':deskripsi', $data->deskripsi);
-        $stmt->bindParam(':gambar_url', $gambar_url);
-        
-        if ($stmt->execute()) {
+        $parameters = [
+            ':id' => $data['id'],
+            ':category_id' => $data['category_id'],
+            ':nama' => $data['nama'],
+            ':harga' => $data['harga'],
+            ':stok' => $data['stok'] ?? 0,
+            ':deskripsi' => $data['deskripsi'] ?? '',
+        ];
+        if (array_key_exists('gambar_url', $data)) {
+            $parameters[':gambar_url'] = $data['gambar_url'];
+        }
+
+        if ($stmt->execute($parameters)) {
             sendResponse(true, "Menu berhasil diperbarui", null, 200);
         } else {
             sendResponse(false, "Gagal memperbarui menu", null, 400);
         }
+    } catch (InvalidArgumentException $e) {
+        sendResponse(false, $e->getMessage(), null, 400);
     } catch (Exception $e) {
         sendResponse(false, "Error: " . $e->getMessage(), null, 500);
     }

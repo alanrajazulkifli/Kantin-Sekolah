@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 require_once '../../helpers/response.php';
 require_once '../../config/database.php';
 require_once '../../helpers/auth.php';
+require_once '../../helpers/menu_image.php';
 
 setHeaders();
 
@@ -31,11 +32,15 @@ $db = $database->getConnection();
 $user = requireAuth($db);
 requireRole($user, ['admin']);
 
-$inputJSON = file_get_contents("php://input");
-$data = json_decode($inputJSON, true);
-
-if (trim($inputJSON) !== '' && json_last_error() !== JSON_ERROR_NONE) {
-    jsonResponse(false, "Format JSON tidak valid.", null, 400);
+$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+if (stripos($contentType, 'application/json') !== false) {
+    $inputJSON = file_get_contents("php://input");
+    $data = json_decode($inputJSON, true);
+    if (trim($inputJSON) !== '' && json_last_error() !== JSON_ERROR_NONE) {
+        jsonResponse(false, "Format JSON tidak valid.", null, 400);
+    }
+} else {
+    $data = $_POST;
 }
 
 $data = is_array($data) ? $data : [];
@@ -65,6 +70,11 @@ if (
 }
 
 try {
+    $uploadedImageUrl = saveMenuImage($_FILES['gambar_file'] ?? null);
+    if ($uploadedImageUrl !== null) {
+        $gambar_url = $uploadedImageUrl;
+    }
+
     $query = "INSERT INTO menus (category_id, nama, harga, stok, deskripsi, gambar_url)
               VALUES (:category_id, :nama, :harga, :stok, :deskripsi, :gambar_url)";
     $stmt = $db->prepare($query);
@@ -78,6 +88,8 @@ try {
     ]);
 
     jsonResponse(true, "Menu berhasil ditambahkan", null, 201);
+} catch (InvalidArgumentException $e) {
+    jsonResponse(false, $e->getMessage(), null, 400);
 } catch (Exception $e) {
     jsonResponse(false, "Gagal menambahkan menu: " . $e->getMessage(), null, 500);
 }

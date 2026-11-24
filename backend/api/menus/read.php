@@ -34,7 +34,8 @@ try {
     $menus = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($menus as &$menu) {
         $imageUrl = trim((string) ($menu['gambar_url'] ?? ''));
-        if ($imageUrl !== '') {
+        $uploadedImagePrefix = '/Kantin-Sekolah/backend/uploads/menu_images/';
+        if ($imageUrl !== '' && strpos($imageUrl, $uploadedImagePrefix) !== 0) {
             $menu['gambar_url'] =
                 '/Kantin-Sekolah/backend/api/menus/image_proxy.php?url=' .
                 rawurlencode($imageUrl);
